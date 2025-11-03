@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, MouseEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Toolbar, { type Tool } from "@/components/draw/toolbar";
 import { nanoid } from "nanoid";
+import { RealtimeChannel } from "@supabase/supabase-js";
+import { MousePointer2 } from "lucide-react";
 
 // element type
 type Element = {
@@ -17,6 +19,12 @@ type Element = {
     height: number;
   };
   created_at: string;
+};
+
+type CursorPosition = {
+  id: string;
+  x: number;
+  y: number;
 };
 
 type DrawingCanvasProps = {
@@ -33,16 +41,21 @@ export default function DrawingCanvas({
   const supabase = createClient();
   const [elements, setElements] = useState<Element[]>(initialElements);
   const [activeTool, setActiveTool] = useState<Tool>("select");
-
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
+  const [cursors, setCursors] = useState<CursorPosition[]>([]);
 
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
 
+  const ourId = useRef(nanoid());
+
   useEffect(() => {
-    const channel = supabase
-      .channel(`realtime:elements:${canvasId}`)
+    const channel = supabase.channel(`realtime:elements:${canvasId}`);
+    channelRef.current = channel;
+
+    channel
       .on(
         "postgres_changes",
         {
@@ -56,12 +69,49 @@ export default function DrawingCanvas({
           if (payload.eventType == "INSERT") {
             setElements((current) => [...current, payload.new as Element]);
           }
+          if (payload.eventType === "UPDATE") {
+            setElements((current) =>
+              current.map((el) =>
+                el.id === payload.new.id ? (payload.new as Element) : el
+              )
+            );
+          }
+          if (payload.eventType === "DELETE") {
+            setElements((current) =>
+              current.filter((el) => el.id !== payload.old.id)
+            );
+          }
         }
       )
-      .subscribe();
+      .on("broadcast", { event: "cursor-move" }, (payload) => {
+        const newPosition = payload.payload as CursorPosition;
+
+        if (newPosition.id === ourId.current) {
+          return;
+        }
+
+        setCursors((current) => {
+          const existing = current.find((c) => c.id === newPosition.id);
+          if (existing) {
+            // update existing cursor position
+            return current.map((c) =>
+              c.id === newPosition.id ? newPosition : c
+            );
+          } else {
+            // add new cursor to the list
+            return [...current, newPosition];
+          }
+        });
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          channel.track({ id: ourId.current });
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   }, [supabase, canvasId]);
 
@@ -101,9 +151,23 @@ export default function DrawingCanvas({
   };
 
   const handlePointerMove = (e: MouseEvent<HTMLCanvasElement>) => {
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
+
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "cursor-move",
+        payload: {
+          id: ourId.current,
+          x,
+          y,
+        },
+      });
+    }
+
     if (!isDrawing || !contextRef.current) return;
     const context = contextRef.current;
-    const { offsetX, offsetY } = e.nativeEvent;
 
     context.clearRect(0, 0, context.canvas.width, context.canvas.height);
     elements.forEach((element) => {
@@ -123,8 +187,8 @@ export default function DrawingCanvas({
       context.strokeRect(
         startPoint.x,
         startPoint.y,
-        offsetX - startPoint.x, //width
-        offsetY - startPoint.y // height
+        x - startPoint.x, //width
+        y - startPoint.y // height
       );
     }
   };
@@ -140,7 +204,7 @@ export default function DrawingCanvas({
 
     let newElementProperties;
 
-    if (activeTool === "rectangle") {
+    if (activeTool === "rectangle" && (width !== 0 || height !== 0)) {
       newElementProperties = {
         type: "rect" as const, // Assert the type
         x: startPoint.x,
@@ -179,7 +243,20 @@ export default function DrawingCanvas({
         onPointerUp={handlePointerUp}
         className="w-full h-full bg-gray-50"
       />
-
+      {cursors.map((cursor) => (
+        <div
+          key={cursor.id}
+          className="absolute top-0 left-0 z-50 pointer-events-none"
+          style={{
+            transform: `translate(${cursor.x}px, ${cursor.y}px)`,
+          }}
+        >
+          <MousePointer2 className="text-blue-500" />
+          <span className="ml-1 text-sm bg-blue-500 text-white px-2 py-0.5 rounded-full">
+            User {cursor.id.substring(0, 4)}
+          </span>
+        </div>
+      ))}
       <pre className="absolute bottom-4 left-4 z-10 p-4 bg-black rounded-lg shadow-md text-sm">
         Active tool : {activeTool}
         <br />
