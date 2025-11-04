@@ -18,7 +18,6 @@ const toolIcons: Record<Tool, React.ReactNode> = {
   text: <Type size={20} />,
 };
 
-// define props
 type ToolbarProps = {
   activeTool: Tool;
   onToolSelect: (tool: Tool) => void;
