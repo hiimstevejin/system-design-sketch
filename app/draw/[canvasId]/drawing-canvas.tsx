@@ -1,37 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState, MouseEvent } from "react";
-import { createClient } from "@/lib/supabase/client";
-import Toolbar, { type Tool } from "@/components/draw/toolbar";
+import { useRef, useState, MouseEvent } from "react";
 import { nanoid } from "nanoid";
-import { RealtimeChannel } from "@supabase/supabase-js";
-import { MousePointer2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-// element type
-type Element = {
-  id: string;
-  canvas_id: string;
-  properties: {
-    type: "rect" | "arrow" | "text";
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  created_at: string;
-};
+// Import our new components
+import Toolbar, { type Tool } from "./components/toolbar";
+import Canvas from "./components/canvas";
+import CursorsOverlay from "./components/cursors-overlay";
+import DebugInfo from "./components/debug-info";
 
-type CursorPosition = {
-  id: string;
-  x: number;
-  y: number;
-};
+// Import our new hooks
+import { useRealtime } from "./hooks/use-realtime";
+import { useCanvasRenderer } from "./hooks/use-canvas-renderer";
 
-type DrawingCanvasProps = {
-  canvasId: string;
-  canvasName: string;
-  initialElements: Element[];
-};
+// Import types
+import {
+  Element,
+  PreviewElement,
+  CursorPosition,
+  DrawingCanvasProps,
+  Action,
+} from "./types";
+
+// Define a type for our new preview element
 
 export default function DrawingCanvas({
   canvasId,
@@ -39,196 +31,190 @@ export default function DrawingCanvas({
   initialElements,
 }: DrawingCanvasProps) {
   const supabase = createClient();
+
   const [elements, setElements] = useState<Element[]>(initialElements);
   const [activeTool, setActiveTool] = useState<Tool>("select");
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
   const [cursors, setCursors] = useState<CursorPosition[]>([]);
+  const [previewElement, setPreviewElement] = useState<PreviewElement>(null);
+  const [action, setAction] = useState<Action>("idle");
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(
+    null
+  );
 
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
-
   const ourId = useRef(nanoid());
+  const dragStartElementPos = useRef<{ x: number; y: number } | null>(null);
 
-  useEffect(() => {
-    const channel = supabase.channel(`realtime:elements:${canvasId}`);
-    channelRef.current = channel;
+  // Hook to manage all Supabase subscriptions
+  const channelRef = useRealtime({
+    canvasId,
+    ourId: ourId.current,
+    setElements,
+    setCursors,
+  });
 
-    channel
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "elements",
-          filter: `canvas_id=eq.${canvasId}`,
-        },
-        (payload) => {
-          console.log("Change received!", payload);
-          if (payload.eventType == "INSERT") {
-            setElements((current) => [...current, payload.new as Element]);
-          }
-          if (payload.eventType === "UPDATE") {
-            setElements((current) =>
-              current.map((el) =>
-                el.id === payload.new.id ? (payload.new as Element) : el
-              )
-            );
-          }
-          if (payload.eventType === "DELETE") {
-            setElements((current) =>
-              current.filter((el) => el.id !== payload.old.id)
-            );
-          }
-        }
-      )
-      .on("broadcast", { event: "cursor-move" }, (payload) => {
-        const newPosition = payload.payload as CursorPosition;
+  // Hook to handle all canvas drawing
+  useCanvasRenderer({
+    canvasRef,
+    contextRef,
+    elements,
+    previewElement,
+  });
 
-        if (newPosition.id === ourId.current) {
-          return;
-        }
-
-        setCursors((current) => {
-          const existing = current.find((c) => c.id === newPosition.id);
-          if (existing) {
-            // update existing cursor position
-            return current.map((c) =>
-              c.id === newPosition.id ? newPosition : c
-            );
-          } else {
-            // add new cursor to the list
-            return [...current, newPosition];
-          }
-        });
-      })
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          channel.track({ id: ourId.current });
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
-  }, [supabase, canvasId]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // set canvas to full screen
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    contextRef.current = context;
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    elements.forEach((element) => {
-      if (element.properties.type === "rect") {
-        context.strokeStyle = "black";
-        context.lineWidth = 2;
-        context.strokeRect(
-          element.properties.x,
-          element.properties.y,
-          element.properties.width,
-          element.properties.height
-        );
-      }
-    });
-  }, [elements]);
-
+  // --- Event Handlers ---
   const handlePointerDown = (e: MouseEvent<HTMLCanvasElement>) => {
-    if (activeTool === "select") return; //TODO
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
 
-    setIsDrawing(true);
-    setStartPoint({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY });
+    if (activeTool === "select") {
+      // console.log(`PointerDown @ (${x}, ${y}) with "select" tool.`);
+      const element = getElementAtPosition(x, y, elements);
+      if (element) {
+        console.log(`Found element: ${element.id}`);
+        setAction("moving");
+        setSelectedElementId(element.id);
+        setStartPoint({ x, y });
+
+        dragStartElementPos.current = {
+          x: element.properties.x,
+          y: element.properties.y,
+        };
+      }
+    } else {
+      console.log("No element found at this position.");
+      setAction("drawing");
+      setIsDrawing(true);
+      setStartPoint({ x, y });
+    }
   };
 
   const handlePointerMove = (e: MouseEvent<HTMLCanvasElement>) => {
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
 
+    // Broadcast our cursor
     if (channelRef.current) {
       channelRef.current.send({
         type: "broadcast",
         event: "cursor-move",
-        payload: {
-          id: ourId.current,
-          x,
-          y,
+        payload: { id: ourId.current, x, y },
+      });
+    }
+
+    if (action === "drawing" && activeTool === "rectangle") {
+      setPreviewElement({
+        properties: {
+          type: "rect",
+          x: startPoint.x,
+          y: startPoint.y,
+          width: x - startPoint.x,
+          height: y - startPoint.y,
         },
       });
     }
 
-    if (!isDrawing || !contextRef.current) return;
-    const context = contextRef.current;
+    if (
+      action === "moving" &&
+      selectedElementId &&
+      dragStartElementPos.current
+    ) {
+      console.log(`Moving element ${selectedElementId}`); 
+      // Calculate how much the mouse has moved
+      const dx = x - startPoint.x;
+      const dy = y - startPoint.y;
 
-    context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-    elements.forEach((element) => {
-      if (element.properties.type == "rect") {
-        context.strokeRect(
-          element.properties.x,
-          element.properties.y,
-          element.properties.width,
-          element.properties.height
-        );
-      }
-    });
+      const originalX = dragStartElementPos.current.x;
+      const originalY = dragStartElementPos.current.y;
 
-    if (activeTool === "rectangle") {
-      context.strokeStyle = "blue";
-      context.lineWidth = 2;
-      context.strokeRect(
-        startPoint.x,
-        startPoint.y,
-        x - startPoint.x, //width
-        y - startPoint.y // height
+      // Optimistically update the element's position locally
+      setElements((currentElements) =>
+        currentElements.map((el) => {
+          if (el.id === selectedElementId) {
+            return {
+              ...el,
+              properties: {
+                ...el.properties,
+                x: originalX + dx,
+                y: originalY + dy,
+              },
+            };
+          }
+          return el;
+        })
       );
     }
   };
 
   const handlePointerUp = async (e: MouseEvent<HTMLCanvasElement>) => {
-    setIsDrawing(false);
-    if (activeTool === "select") return;
+    if (action === "drawing") {
+      setIsDrawing(false);
+      setPreviewElement(null);
 
-    const { offsetX, offsetY } = e.nativeEvent;
-    const width = offsetX - startPoint.x;
-    const height = offsetY - startPoint.y;
-    const newId = nanoid(); // Generate a unique client-side ID
+      const { offsetX, offsetY } = e.nativeEvent;
+      const width = offsetX - startPoint.x;
+      const height = offsetY - startPoint.y;
 
-    let newElementProperties;
+      if (activeTool === "rectangle" && (width !== 0 || height !== 0)) {
+        // Insert the new element into the database
+        const { error } = await supabase.from("elements").insert({
+          id: nanoid(),
+          canvas_id: canvasId,
+          properties: {
+            type: "rect" as const,
+            x: startPoint.x,
+            y: startPoint.y,
+            width: width,
+            height: height,
+          },
+        });
 
-    if (activeTool === "rectangle" && (width !== 0 || height !== 0)) {
-      newElementProperties = {
-        type: "rect" as const, // Assert the type
-        x: startPoint.x,
-        y: startPoint.y,
-        width: width,
-        height: height,
-      };
-    }
-    // Add else if (activeTool === 'arrow') { ... } later
-
-    if (newElementProperties) {
-      // Insert the new element into the database
-      const { error } = await supabase.from("elements").insert({
-        id: newId,
-        canvas_id: canvasId,
-        properties: newElementProperties,
-      });
-
-      if (error) {
-        console.error("Error inserting element:", error);
-        // TODO
+        if (error) {
+          console.error("Error inserting element:", error);
+        }
       }
     }
+
+    if (action === "moving" && selectedElementId) {
+      // Find the element we just moved
+      const movedElement = elements.find((el) => el.id === selectedElementId);
+
+      if (movedElement) {
+        // Send the FINAL updated properties to Supabase
+        const { error } = await supabase
+          .from("elements")
+          .update({ properties: movedElement.properties })
+          .eq("id", selectedElementId);
+
+        if (error) {
+          console.error("Error updating element:", error);
+          // TODO: Revert optimistic update on error
+        }
+      }
+    }
+
+    // Reset actions
+    setAction("idle");
+    setSelectedElementId(null);
+    dragStartElementPos.current = null;
   };
+
+  function getElementAtPosition(x: number, y: number, elements: Element[]) {
+    // Loop backwards to select the top-most element
+    for (let i = elements.length - 1; i >= 0; i--) {
+      const el = elements[i];
+      if (el.properties.type === "rect") {
+        const { x: elX, y: elY, width: elW, height: elH } = el.properties;
+        if (x >= elX && x <= elX + elW && y >= elY && y <= elY + elH) {
+          return el;
+        }
+      }
+      // Add 'else if' for other shapes later
+    }
+    return null;
+  }
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
@@ -236,32 +222,14 @@ export default function DrawingCanvas({
         activeTool={activeTool}
         onToolSelect={(tool) => setActiveTool(tool)}
       />
-      <canvas
-        ref={canvasRef}
+      <Canvas
+        canvasRef={canvasRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="w-full h-full bg-gray-50"
       />
-      {cursors.map((cursor) => (
-        <div
-          key={cursor.id}
-          className="absolute top-0 left-0 z-50 pointer-events-none"
-          style={{
-            transform: `translate(${cursor.x}px, ${cursor.y}px)`,
-          }}
-        >
-          <MousePointer2 className="text-blue-500" />
-          <span className="ml-1 text-sm bg-blue-500 text-white px-2 py-0.5 rounded-full">
-            User {cursor.id.substring(0, 4)}
-          </span>
-        </div>
-      ))}
-      <pre className="absolute bottom-4 left-4 z-10 p-4 bg-black rounded-lg shadow-md text-sm">
-        Active tool : {activeTool}
-        <br />
-        Drawing: {isDrawing.toString()}
-      </pre>
+      <CursorsOverlay cursors={cursors} />
+      <DebugInfo activeTool={activeTool} isDrawing={isDrawing} />
     </div>
   );
 }
