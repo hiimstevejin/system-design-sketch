@@ -40,7 +40,7 @@ export default function DrawingCanvas({
   const [previewElement, setPreviewElement] = useState<PreviewElement>(null);
   const [action, setAction] = useState<Action>("idle");
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
-    null
+    null,
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -121,7 +121,7 @@ export default function DrawingCanvas({
       selectedElementId &&
       dragStartElementPos.current
     ) {
-      console.log(`Moving element ${selectedElementId}`); 
+      console.log(`Moving element ${selectedElementId}`);
       // Calculate how much the mouse has moved
       const dx = x - startPoint.x;
       const dy = y - startPoint.y;
@@ -143,7 +143,7 @@ export default function DrawingCanvas({
             };
           }
           return el;
-        })
+        }),
       );
     }
   };
@@ -206,8 +206,15 @@ export default function DrawingCanvas({
     for (let i = elements.length - 1; i >= 0; i--) {
       const el = elements[i];
       if (el.properties.type === "rect") {
+        // add padding so that the element is selected even if the cursor is slightly outside the element
+        const padding = 10;
         const { x: elX, y: elY, width: elW, height: elH } = el.properties;
-        if (x >= elX && x <= elX + elW && y >= elY && y <= elY + elH) {
+        if (
+          x >= elX - padding &&
+          x <= elX + elW + padding &&
+          y >= elY - padding &&
+          y <= elY + elH + padding
+        ) {
           return el;
         }
       }
