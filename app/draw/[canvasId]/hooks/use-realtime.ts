@@ -37,7 +37,12 @@ export function useRealtime({
         },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setElements((current) => [...current, payload.new as Element]);
+            setElements((current) => {
+              if (current.some((el) => el.id === payload.new.id)) {
+                return current;
+              }
+              return [...current, payload.new as Element];
+            });
           }
           if (payload.eventType === "UPDATE") {
             setElements((current) =>

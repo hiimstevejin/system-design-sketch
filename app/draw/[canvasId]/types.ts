@@ -1,13 +1,23 @@
+type RectProperties = {
+  type: "rect";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type ArrowProperties = {
+  type: "arrow";
+  x: number;
+  y: number;
+  x2: number;
+  y2: number;
+};
+
 export type Element = {
   id: string;
   canvas_id: string;
-  properties: {
-    type: "rect" | "arrow" | "text";
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
+  properties: RectProperties | ArrowProperties;
   created_at: string;
 };
 

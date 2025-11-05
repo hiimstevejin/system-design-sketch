@@ -48,15 +48,21 @@ function drawElement(
 ) {
   if (!element) return;
 
+  context.strokeStyle = strokeColor;
+  context.lineWidth = 2;
+
   if (element.properties.type === "rect") {
-    context.strokeStyle = strokeColor;
-    context.lineWidth = 2;
     context.strokeRect(
       element.properties.x,
       element.properties.y,
       element.properties.width,
-      element.properties.height
+      element.properties.height,
     );
+  } else if (element.properties.type === "arrow") {
+    context.beginPath();
+    context.moveTo(element.properties.x, element.properties.y);
+    context.lineTo(element.properties.x2, element.properties.y2);
+    context.stroke();
   }
   // Add 'else if' for 'arrow', 'text', etc. later
 }
