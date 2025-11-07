@@ -42,7 +42,11 @@ export default function DrawingCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const ourId = useRef(nanoid());
-  const dragStartElementPos = useRef<{ x: number; y: number } | null>(null);
+  const dragStartElementPos = useRef<
+    | { x: number; y: number }
+    | { x: number; y: number; x2: number; y2: number }
+    | null
+  >(null);
 
   // Hook to manage all Supabase subscriptions
   const channelRef = useRealtime({
@@ -200,16 +204,18 @@ export default function DrawingCanvas({
                 },
               };
             } else if (el.properties.type === "arrow") {
-              return {
-                ...el,
-                properties: {
-                  ...el.properties,
-                  x: originalPos.x + dx,
-                  y: originalPos.y + dy,
-                  x2: originalPos.x2! + dx, // <-- Move end point
-                  y2: originalPos.y2! + dy, // <-- Move end point
-                },
-              };
+              if (originalPos && "x2" in originalPos) {
+                return {
+                  ...el,
+                  properties: {
+                    ...el.properties,
+                    x: originalPos.x + dx,
+                    y: originalPos.y + dy,
+                    x2: originalPos.x2! + dx, // <-- Move end point
+                    y2: originalPos.y2! + dy, // <-- Move end point
+                  },
+                };
+              }
             } else if (el.properties.type === "text") {
               return {
                 ...el,
