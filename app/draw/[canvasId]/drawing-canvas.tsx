@@ -4,17 +4,14 @@ import { useRef, useState, MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import { createClient } from "@/lib/supabase/client";
 
-// Import our new components
 import Toolbar, { type Tool } from "./components/toolbar";
 import Canvas from "./components/canvas";
 import CursorsOverlay from "./components/cursors-overlay";
 import DebugInfo from "./components/debug-info";
 
-// Import our new hooks
 import { useRealtime } from "./hooks/use-realtime";
 import { useCanvasRenderer } from "./hooks/use-canvas-renderer";
 
-// Import types
 import {
   Element,
   PreviewElement,
@@ -22,8 +19,6 @@ import {
   DrawingCanvasProps,
   Action,
 } from "./types";
-
-// Define a type for our new preview element
 
 export default function DrawingCanvas({
   canvasId,
@@ -42,6 +37,7 @@ export default function DrawingCanvas({
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
   );
+  const [editingElementId, setEditingElementId] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -62,6 +58,7 @@ export default function DrawingCanvas({
     contextRef,
     elements,
     previewElement,
+    editingElementId,
   });
 
   const handleToolSelect = (tool: Tool) => {
@@ -71,7 +68,7 @@ export default function DrawingCanvas({
   };
 
   // --- Event Handlers ---
-  const handlePointerDown = (e: MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = async (e: MouseEvent<HTMLCanvasElement>) => {
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
 
@@ -96,7 +93,40 @@ export default function DrawingCanvas({
             x2: element.properties.x2, // <-- Store end points
             y2: element.properties.y2,
           };
+        } else if (element.properties.type === "text") {
+          dragStartElementPos.current = {
+            x: element.properties.x,
+            y: element.properties.y,
+          };
         }
+      }
+    } else if (activeTool == "text") {
+      const newTextElement: Element = {
+        id: nanoid(),
+        canvas_id: canvasId,
+        properties: {
+          type: "text",
+          x: x,
+          y: y,
+          text: "Text",
+        },
+        created_at: new Date().toISOString(),
+      };
+      setElements((current) => [...current, newTextElement]);
+
+      setTimeout(() => {
+        setEditingElementId(newTextElement.id);
+      }, 0);
+      setAction("idle");
+      setActiveTool("select");
+
+      const { error } = await supabase.from("elements").insert(newTextElement);
+
+      if (error) {
+        console.error("Error inserting text element:", error);
+        setElements((current) =>
+          current.filter((el) => el.id !== newTextElement.id),
+        );
       }
     } else {
       console.log("No element found at this position.");
@@ -153,9 +183,6 @@ export default function DrawingCanvas({
       const dx = x - startPoint.x;
       const dy = y - startPoint.y;
 
-      const originalX = dragStartElementPos.current.x;
-      const originalY = dragStartElementPos.current.y;
-
       // Optimistically update the element's position locally
       setElements((currentElements) =>
         currentElements.map((el) => {
@@ -181,6 +208,15 @@ export default function DrawingCanvas({
                   y: originalPos.y + dy,
                   x2: originalPos.x2! + dx, // <-- Move end point
                   y2: originalPos.y2! + dy, // <-- Move end point
+                },
+              };
+            } else if (el.properties.type === "text") {
+              return {
+                ...el,
+                properties: {
+                  ...el.properties,
+                  x: originalPos.x + dx,
+                  y: originalPos.y + dy,
                 },
               };
             }
@@ -333,11 +369,55 @@ export default function DrawingCanvas({
         if (distance <= padding) {
           return el;
         }
+      } else if (el.properties.type === "text") {
+        const padding = 10;
+        const { x: elX, y: elY, text } = el.properties;
+        const width = text.length * 8;
+        const height = 16;
+        if (
+          x >= elX - padding &&
+          x <= elX + width + padding &&
+          y >= elY - height - padding &&
+          y <= elY + height + padding
+        ) {
+          return el;
+        }
       }
       // Add 'else if' for other shapes later
     }
     return null;
   }
+
+  const handleTextChange = (id: string, newText: string) => {
+    // Optimistically update the text in the local state
+    setElements((current) =>
+      current.map((el) => {
+        if (el.id === id && el.properties.type === "text") {
+          return { ...el, properties: { ...el.properties, text: newText } };
+        }
+        return el;
+      }),
+    );
+  };
+
+  const handleTextBlur = async () => {
+    // When the user clicks away, find the element and save it to DB
+    const editingElement = elements.find((el) => el.id === editingElementId);
+    if (editingElement) {
+      const { error } = await supabase
+        .from("elements")
+        .update({ properties: editingElement.properties })
+        .eq("id", editingElement.id);
+
+      if (error) console.error("Error updating text:", error);
+    }
+    setEditingElementId(null); // Stop editing
+  };
+
+  // 7. FIND THE ELEMENT TO EDIT for the JSX
+  const elementToEdit = elements.find(
+    (el) => el.id === editingElementId && el.properties.type === "text",
+  ) as (Element & { properties: { type: "text" } }) | undefined;
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
@@ -350,6 +430,29 @@ export default function DrawingCanvas({
       />
       <CursorsOverlay cursors={cursors} />
       <DebugInfo activeTool={activeTool} isDrawing={isDrawing} />
+
+      {elementToEdit && (
+        <textarea
+          value={elementToEdit.properties.text}
+          onChange={(e) => handleTextChange(elementToEdit.id, e.target.value)}
+          onBlur={handleTextBlur}
+          style={{
+            position: "absolute",
+            color: "black",
+            top: elementToEdit.properties.y - 16, // Adjust for font size
+            left: elementToEdit.properties.x,
+            font: "16px sans-serif",
+            border: "1px dashed #333",
+            outline: "none",
+            resize: "none",
+            overflow: "hidden",
+            background: "transparent",
+            whiteSpace: "pre", // Respect newlines
+          }}
+          autoFocus
+          onFocus={(e) => e.target.select()} // Select text on focus
+        />
+      )}
     </div>
   );
 }

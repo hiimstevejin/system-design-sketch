@@ -14,14 +14,24 @@ type ArrowProperties = {
   y2: number;
 };
 
+type TextProperties = {
+  type: "text";
+  x: number;
+  y: number;
+  text: string;
+};
+
 export type Element = {
   id: string;
   canvas_id: string;
-  properties: RectProperties | ArrowProperties;
+  properties: RectProperties | ArrowProperties | TextProperties;
   created_at: string;
 };
 
-export type PreviewElement = Omit<Element, "id" | "created_at" | "canvas_id"> | null;
+export type PreviewElement = Omit<
+  Element,
+  "id" | "created_at" | "canvas_id"
+> | null;
 
 export type CursorPosition = {
   id: string;

@@ -6,6 +6,7 @@ type UseCanvasRendererParams = {
   contextRef: React.MutableRefObject<CanvasRenderingContext2D | null>;
   elements: Element[];
   previewElement: PreviewElement;
+  editingElementId: string | null;
 };
 
 export function useCanvasRenderer({
@@ -13,23 +14,29 @@ export function useCanvasRenderer({
   contextRef,
   elements,
   previewElement,
+  editingElementId,
 }: UseCanvasRendererParams) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
 
     const context = canvas.getContext("2d");
     if (!context) return;
     contextRef.current = context;
+
+    context.scale(dpr, dpr);
 
     // Clear the canvas
     context.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw all permanent elements
     elements.forEach((element) => {
+      if (element.id === editingElementId) return;
       drawElement(context, element);
     });
 
@@ -37,18 +44,19 @@ export function useCanvasRenderer({
     if (previewElement) {
       drawElement(context, previewElement, "blue");
     }
-  }, [canvasRef, contextRef, elements, previewElement]);
+  }, [canvasRef, contextRef, elements, previewElement, editingElementId]);
 }
 
 // Helper function to draw any element
 function drawElement(
   context: CanvasRenderingContext2D,
   element: Element | PreviewElement,
-  strokeColor: string = "black"
+  color: string = "black",
 ) {
   if (!element) return;
 
-  context.strokeStyle = strokeColor;
+  context.strokeStyle = color;
+  context.fillStyle = color;
   context.lineWidth = 2;
 
   if (element.properties.type === "rect") {
@@ -63,6 +71,12 @@ function drawElement(
     context.moveTo(element.properties.x, element.properties.y);
     context.lineTo(element.properties.x2, element.properties.y2);
     context.stroke();
+  } else if (element.properties.type === "text") {
+    context.font = "16px sans-serif";
+    context.fillText(
+      element.properties.text,
+      element.properties.x,
+      element.properties.y,
+    );
   }
-  // Add 'else if' for 'arrow', 'text', etc. later
 }
