@@ -46,3 +46,6 @@ export type DrawingCanvasProps = {
 };
 
 export type Action = "idle" | "drawing" | "moving";
+
+export const TOOLS = ["select", "rectangle", "arrow", "text"] as const;
+export type Tool = (typeof TOOLS)[number];
