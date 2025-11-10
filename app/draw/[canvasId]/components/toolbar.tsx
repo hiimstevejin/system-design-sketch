@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
 import { TOOLS, Tool } from "../types";
 
 const toolIcons: Record<Tool, React.ReactNode> = {
-  select: <Hand size={20} />,
-  rectangle: <RectangleHorizontal size={20} />,
-  arrow: <ArrowRight size={20} />,
-  text: <Type size={20} />,
+  select: <Hand size={25} />,
+  rectangle: <RectangleHorizontal size={25} />,
+  arrow: <ArrowRight size={30} />,
+  text: <Type size={25} />,
 };
 
 type ToolbarProps = {
@@ -31,7 +31,7 @@ export default function Toolbar({
               "flex items-center justify-center w-10 rounded-md cursor-pointer",
               activeTool === tool
                 ? "bg-indigo-100 text-indigo-600" //active state
-                : "bg-gray-50 hover:bg-gray-100 text-gray-700", // inactive state
+                : "hover:bg-gray-100 text-gray-700", // inactive state
             )}
             title={tool.charAt(0).toUpperCase() + tool.slice(1)}
           >
