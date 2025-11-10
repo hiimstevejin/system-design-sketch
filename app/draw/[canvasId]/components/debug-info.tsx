@@ -1,3 +1,5 @@
+"use client";
+
 type DebugInfoProps = {
   activeTool: string;
   isDrawing: boolean;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Element } from "../types";
+import { Camera, Element } from "../types";
 
 type TextElement = Element & { properties: { type: "text" } };
 
@@ -7,12 +7,14 @@ type EditableTextProps = {
   element: TextElement;
   onBlur: (element: TextElement) => void; // Function to call when saving
   onChange: (id: string, newText: string) => void; // Function for optimistic update
+  camera: Camera;
 };
 
 export default function EditableText({
   element,
   onBlur,
   onChange,
+  camera,
 }: EditableTextProps) {
   const { id, properties } = element;
   const { x, y, text } = properties;
@@ -42,6 +44,9 @@ export default function EditableText({
     });
   };
 
+  const screenX = x + camera.x;
+  const screenY = y + camera.y;
+
   return (
     <textarea
       value={currentText}
@@ -49,8 +54,8 @@ export default function EditableText({
       onBlur={handleBlur}
       style={{
         position: "absolute",
-        top: y, // We use (x,y) as top-left
-        left: x,
+        top: screenY,
+        left: screenX,
         font: "16px sans-serif",
         border: "1px dashed #333",
         outline: "none",

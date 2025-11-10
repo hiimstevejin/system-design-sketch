@@ -14,16 +14,16 @@ import EditableText from "./components/editable-text";
 // Import hooks
 import { useRealtime } from "./hooks/use-realtime";
 import { useCanvasRenderer } from "./hooks/use-canvas-renderer";
-import { usePointerEvents } from "./hooks/use-pointer.events";
+import { usePointerEvents } from "./hooks/use-pointer-events";
 
 // Import types
-import {
-  Element,
-  PreviewElement,
-  CursorPosition,
-  DrawingCanvasProps,
-  Tool,
-} from "./types";
+import { Element, PreviewElement, CursorPosition, Tool } from "./types";
+
+type DrawingCanvasProps = {
+  canvasId: string;
+  canvasName: string;
+  initialElements: Element[];
+};
 
 export default function DrawingCanvas({
   canvasId,
@@ -38,6 +38,7 @@ export default function DrawingCanvas({
   const [cursors, setCursors] = useState<CursorPosition[]>([]);
   const [previewElement, setPreviewElement] = useState<PreviewElement>(null);
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
+  const [camera, setCamera] = useState({ x: 0, y: 0 });
 
   // --- Refs ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,22 +59,30 @@ export default function DrawingCanvas({
     elements,
     previewElement,
     editingElementId,
+    camera,
   });
 
-  const { handlePointerDown, handlePointerMove, handlePointerUp, isDrawing } =
-    usePointerEvents({
-      elements,
-      setElements,
-      previewElement,
-      setPreviewElement,
-      activeTool,
-      canvasId,
-      ourId: ourId.current,
-      channelRef,
-      supabase,
-      setEditingElementId,
-      setActiveTool,
-    });
+  const {
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    isDrawing,
+    handleWheel,
+  } = usePointerEvents({
+    elements,
+    setElements,
+    previewElement,
+    setPreviewElement,
+    activeTool,
+    canvasId,
+    ourId: ourId.current,
+    channelRef,
+    supabase,
+    setEditingElementId,
+    setActiveTool,
+    camera,
+    setCamera,
+  });
 
   // --- Event Handlers ---
   const handleToolSelect = (tool: Tool) => {
@@ -111,14 +120,15 @@ export default function DrawingCanvas({
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
-      <Toolbar activeTool={activeTool} onToolSelectAction={handleToolSelect} />
+      <Toolbar activeTool={activeTool} onToolSelect={handleToolSelect} />
       <Canvas
         canvasRef={canvasRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onWheel={handleWheel}
       />
-      <CursorsOverlay cursors={cursors} />
+      <CursorsOverlay cursors={cursors} camera={camera} />
       <DebugInfo activeTool={activeTool} isDrawing={isDrawing} />
 
       {elementToEdit && (
@@ -126,6 +136,7 @@ export default function DrawingCanvas({
           element={elementToEdit}
           onChange={handleTextChange}
           onBlur={handleTextBlur}
+          camera={camera}
         />
       )}
     </div>

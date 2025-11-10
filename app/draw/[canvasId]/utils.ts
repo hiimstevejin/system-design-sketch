@@ -1,4 +1,13 @@
-import { Element } from "./types";
+import { Camera, Element } from "./types";
+
+// convert screen coordinates to world coordinates
+export function screenToWorld(x: number, y: number, camera: Camera) {
+  return {
+    x: x - camera.x,
+    y: y - camera.y,
+  };
+}
+
 /**
  * Calculates the distance from a point (x, y) to a line segment (x1, y1) -> (x2, y2).
  */

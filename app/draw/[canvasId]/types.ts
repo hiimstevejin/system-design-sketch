@@ -39,13 +39,12 @@ export type CursorPosition = {
   y: number;
 };
 
-export type DrawingCanvasProps = {
-  canvasId: string;
-  canvasName: string;
-  initialElements: Element[];
-};
-
 export type Action = "idle" | "drawing" | "moving";
+
+export type Camera = {
+  x: number;
+  y: number;
+};
 
 export const TOOLS = ["select", "rectangle", "arrow", "text"] as const;
 export type Tool = (typeof TOOLS)[number];

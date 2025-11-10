@@ -1,8 +1,8 @@
 import { useState, useRef, MouseEvent, useEffect, useCallback } from "react";
 import { nanoid } from "nanoid";
 import { SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
-import { Element, PreviewElement, Action, Tool } from "../types";
-import { getElementAtPosition } from "../utils";
+import { Element, PreviewElement, Action, Tool, Camera } from "../types";
+import { getElementAtPosition, screenToWorld } from "../utils";
 
 type UsePointerEventsParams = {
   elements: Element[];
@@ -16,6 +16,8 @@ type UsePointerEventsParams = {
   supabase: SupabaseClient;
   setEditingElementId: (id: string | null) => void;
   setActiveTool: (tool: Tool) => void;
+  camera: Camera;
+  setCamera: React.Dispatch<React.SetStateAction<Camera>>;
 };
 
 // This type must match the ref in drawing-canvas.tsx
@@ -35,6 +37,8 @@ export function usePointerEvents({
   supabase,
   setEditingElementId,
   setActiveTool,
+  camera,
+  setCamera,
 }: UsePointerEventsParams) {
   const [action, setAction] = useState<Action>("idle");
   const [isDrawing, setIsDrawing] = useState(false);
@@ -45,6 +49,16 @@ export function usePointerEvents({
   const dragStartElementPos = useRef<DragStartPos>(null);
   const prevElementsRef = useRef<Element[] | null>(null);
 
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<HTMLCanvasElement>) => {
+      // Update camera x and y based on scroll delta
+      setCamera((prev) => ({
+        x: prev.x - e.deltaX,
+        y: prev.y - e.deltaY,
+      }));
+    },
+    [setCamera],
+  );
   const handleDeleteSelected = useCallback(async () => {
     if (!selectedElementId) return;
 
@@ -93,15 +107,18 @@ export function usePointerEvents({
 
   const handlePointerDown = useCallback(
     async (e: MouseEvent<HTMLCanvasElement>) => {
-      const x = e.nativeEvent.offsetX;
-      const y = e.nativeEvent.offsetY;
+      const { x: worldX, y: worldY } = screenToWorld(
+        e.nativeEvent.offsetX,
+        e.nativeEvent.offsetY,
+        camera,
+      );
 
       if (activeTool === "select") {
-        const element = getElementAtPosition(x, y, elements);
+        const element = getElementAtPosition(worldX, worldY, elements);
         if (element) {
           setAction("moving");
           setSelectedElementId(element.id);
-          setStartPoint({ x, y });
+          setStartPoint({ x: worldX, y: worldY });
 
           if (
             element.properties.type === "rect" ||
@@ -124,7 +141,7 @@ export function usePointerEvents({
         const newTextElement: Element = {
           id: nanoid(),
           canvas_id: canvasId,
-          properties: { type: "text", x, y, text: "Text" },
+          properties: { type: "text", x: worldX, y: worldY, text: "Text" },
           created_at: new Date().toISOString(),
         };
 
@@ -146,7 +163,7 @@ export function usePointerEvents({
       } else {
         setAction("drawing");
         setIsDrawing(true);
-        setStartPoint({ x, y });
+        setStartPoint({ x: worldX, y: worldY });
       }
     },
     [
@@ -157,20 +174,24 @@ export function usePointerEvents({
       setEditingElementId,
       setActiveTool,
       supabase,
+      camera,
     ],
   );
 
   const handlePointerMove = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
-      const x = e.nativeEvent.offsetX;
-      const y = e.nativeEvent.offsetY;
+      const { x: worldX, y: worldY } = screenToWorld(
+        e.nativeEvent.offsetX,
+        e.nativeEvent.offsetY,
+        camera,
+      );
 
       // Broadcast cursor
       if (channelRef.current) {
         channelRef.current.send({
           type: "broadcast",
           event: "cursor-move",
-          payload: { id: ourId, x, y },
+          payload: { id: ourId, x: worldX, y: worldY },
         });
       }
 
@@ -182,8 +203,8 @@ export function usePointerEvents({
               type: "rect",
               x: startPoint.x,
               y: startPoint.y,
-              width: x - startPoint.x,
-              height: y - startPoint.y,
+              width: worldX - startPoint.x,
+              height: worldY - startPoint.y,
             },
           });
         } else if (activeTool === "arrow") {
@@ -192,8 +213,8 @@ export function usePointerEvents({
               type: "arrow",
               x: startPoint.x,
               y: startPoint.y,
-              x2: x,
-              y2: y,
+              x2: worldX,
+              y2: worldY,
             },
           });
         }
@@ -205,8 +226,8 @@ export function usePointerEvents({
         selectedElementId &&
         dragStartElementPos.current
       ) {
-        const dx = x - startPoint.x;
-        const dy = y - startPoint.y;
+        const dx = worldX - startPoint.x;
+        const dy = worldY - startPoint.y;
 
         setElements((currentElements) =>
           currentElements.map((el) => {
@@ -255,12 +276,17 @@ export function usePointerEvents({
       setElements,
       setPreviewElement,
       startPoint,
+      camera,
     ],
   );
 
   const handlePointerUp = useCallback(
     async (e: MouseEvent<HTMLCanvasElement>) => {
-      const { offsetX, offsetY } = e.nativeEvent;
+      const { x: worldX, y: worldY } = screenToWorld(
+        e.nativeEvent.offsetX,
+        e.nativeEvent.offsetY,
+        camera,
+      );
 
       if (action === "drawing") {
         setIsDrawing(false);
@@ -269,8 +295,8 @@ export function usePointerEvents({
         let newElementProperties: Element["properties"] | undefined;
 
         if (activeTool === "rectangle") {
-          const width = offsetX - startPoint.x;
-          const height = offsetY - startPoint.y;
+          const width = worldX - startPoint.x;
+          const height = worldY - startPoint.y;
           if (width !== 0 || height !== 0) {
             newElementProperties = {
               type: "rect",
@@ -281,13 +307,13 @@ export function usePointerEvents({
             };
           }
         } else if (activeTool === "arrow") {
-          if (offsetX !== startPoint.x || offsetY !== startPoint.y) {
+          if (worldX !== startPoint.x || worldY !== startPoint.y) {
             newElementProperties = {
               type: "arrow",
               x: startPoint.x,
               y: startPoint.y,
-              x2: offsetX,
-              y2: offsetY,
+              x2: worldX,
+              y2: worldY,
             };
           }
         }
@@ -314,7 +340,7 @@ export function usePointerEvents({
       }
 
       if (action === "moving" && selectedElementId) {
-        const hasMoved = startPoint.x !== offsetX || startPoint.y !== offsetY;
+        const hasMoved = startPoint.x !== worldX || startPoint.y !== worldY;
 
         if (hasMoved) {
           const movedElement = elements.find(
@@ -346,9 +372,16 @@ export function usePointerEvents({
       setPreviewElement,
       startPoint,
       supabase,
+      camera,
     ],
   );
 
   // We need to return isDrawing for the DebugInfo component
-  return { handlePointerDown, handlePointerMove, handlePointerUp, isDrawing };
+  return {
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    isDrawing,
+    handleWheel,
+  };
 }

@@ -1,12 +1,13 @@
 import { useEffect } from "react";
-import { Element, PreviewElement } from "../types";
+import { Camera, Element, PreviewElement } from "../types";
 
 type UseCanvasRendererParams = {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  contextRef: React.MutableRefObject<CanvasRenderingContext2D | null>;
+  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
   elements: Element[];
   previewElement: PreviewElement;
   editingElementId: string | null;
+  camera: Camera;
 };
 
 export function useCanvasRenderer({
@@ -15,24 +16,27 @@ export function useCanvasRenderer({
   elements,
   previewElement,
   editingElementId,
+  camera,
 }: UseCanvasRendererParams) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const dpr = window.devicePixelRatio || 1;
-
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
+    canvas.style.width = `${window.innerWidth}px`;
+    canvas.style.height = `${window.innerHeight}px`;
 
     const context = canvas.getContext("2d");
     if (!context) return;
     contextRef.current = context;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    context.save();
 
     context.scale(dpr, dpr);
-
-    // Clear the canvas
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.translate(camera.x, camera.y);
 
     // Draw all permanent elements
     elements.forEach((element) => {
@@ -44,7 +48,16 @@ export function useCanvasRenderer({
     if (previewElement) {
       drawElement(context, previewElement, "blue");
     }
-  }, [canvasRef, contextRef, elements, previewElement, editingElementId]);
+
+    context.restore();
+  }, [
+    canvasRef,
+    contextRef,
+    elements,
+    previewElement,
+    editingElementId,
+    camera,
+  ]);
 }
 
 // Helper function to draw any element
