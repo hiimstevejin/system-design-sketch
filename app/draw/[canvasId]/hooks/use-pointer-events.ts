@@ -13,6 +13,7 @@ type UsePointerEventsParams = {
   canvasId: string;
   ourId: string;
   channelRef: React.RefObject<RealtimeChannel | null>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   supabase: SupabaseClient;
   setEditingElementId: (id: string | null) => void;
   setActiveTool: (tool: Tool) => void;
@@ -34,6 +35,7 @@ export function usePointerEvents({
   canvasId,
   ourId,
   channelRef,
+  canvasRef,
   supabase,
   setEditingElementId,
   setActiveTool,
@@ -50,15 +52,46 @@ export function usePointerEvents({
   const prevElementsRef = useRef<Element[] | null>(null);
 
   const handleWheel = useCallback(
-    (e: React.WheelEvent<HTMLCanvasElement>) => {
+    (e: WheelEvent) => {
       // Update camera x and y based on scroll delta
-      setCamera((prev) => ({
-        x: prev.x - e.deltaX,
-        y: prev.y - e.deltaY,
-      }));
+      e.preventDefault();
+
+      const { offsetX, offsetY, deltaX, deltaY, ctrlKey } = e;
+
+      if (ctrlKey) {
+        const zoomIntensity = 0.05;
+        const newZoom = camera.zoom - deltaY * zoomIntensity;
+        const clampedZoom = Math.max(0.1, Math.min(newZoom, 5));
+
+        const worldX = (offsetX - camera.x) / camera.zoom;
+        const worldY = (offsetY - camera.y) / camera.zoom;
+
+        const newCameraX = offsetX - worldX * clampedZoom;
+        const newCameraY = offsetY - worldY * clampedZoom;
+
+        setCamera({ x: newCameraX, y: newCameraY, zoom: clampedZoom });
+      } else {
+        setCamera((prev) => ({
+          ...prev,
+          x: prev.x - deltaX,
+          y: prev.y - deltaY,
+        }));
+      }
     },
-    [setCamera],
+    [camera, setCamera],
   );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("wheel", handleWheel);
+    };
+  }, [canvasRef, handleWheel]); // Run when the canvas or handler changes
+
   const handleDeleteSelected = useCallback(async () => {
     if (!selectedElementId) return;
 
@@ -382,6 +415,5 @@ export function usePointerEvents({
     handlePointerMove,
     handlePointerUp,
     isDrawing,
-    handleWheel,
   };
 }

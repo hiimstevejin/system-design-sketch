@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Camera, Element } from "../types";
+import { worldToScreen } from "../utils";
 
 type TextElement = Element & { properties: { type: "text" } };
 
@@ -44,9 +45,11 @@ export default function EditableText({
     });
   };
 
-  const screenX = x + camera.x;
-  const screenY = y + camera.y;
-
+  const { x: screenX, y: screenY } = worldToScreen(
+    element.properties.x,
+    element.properties.y,
+    camera,
+  );
   return (
     <textarea
       value={currentText}
@@ -63,6 +66,8 @@ export default function EditableText({
         overflow: "hidden",
         background: "transparent",
         whiteSpace: "pre",
+        transform: `scale(${camera.zoom})`,
+        transformOrigin: "top left",
       }}
       autoFocus
       onFocus={(e) => e.target.select()}

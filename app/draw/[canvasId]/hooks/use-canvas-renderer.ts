@@ -37,6 +37,7 @@ export function useCanvasRenderer({
 
     context.scale(dpr, dpr);
     context.translate(camera.x, camera.y);
+    context.scale(camera.zoom, camera.zoom);
 
     // Draw all permanent elements
     elements.forEach((element) => {

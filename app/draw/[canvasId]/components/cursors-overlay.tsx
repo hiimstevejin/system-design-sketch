@@ -2,6 +2,7 @@
 
 import { MousePointer2 } from "lucide-react";
 import { Camera, CursorPosition } from "@/app/draw/[canvasId]/types";
+import { worldToScreen } from "@/app/draw/[canvasId]/utils";
 
 type CursorsOverlayProps = {
   cursors: CursorPosition[];
@@ -16,8 +17,11 @@ export default function CursorsOverlay({
     <>
       {cursors.map((cursor) => {
         // 3. Convert the cursor's WORLD position back to SCREEN position
-        const screenX = cursor.x + camera.x;
-        const screenY = cursor.y + camera.y;
+        const { x: screenX, y: screenY } = worldToScreen(
+          cursor.x,
+          cursor.y,
+          camera,
+        );
 
         return (
           <div

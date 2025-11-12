@@ -38,7 +38,7 @@ export default function DrawingCanvas({
   const [cursors, setCursors] = useState<CursorPosition[]>([]);
   const [previewElement, setPreviewElement] = useState<PreviewElement>(null);
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
-  const [camera, setCamera] = useState({ x: 0, y: 0 });
+  const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
 
   // --- Refs ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,27 +62,23 @@ export default function DrawingCanvas({
     camera,
   });
 
-  const {
-    handlePointerDown,
-    handlePointerMove,
-    handlePointerUp,
-    isDrawing,
-    handleWheel,
-  } = usePointerEvents({
-    elements,
-    setElements,
-    previewElement,
-    setPreviewElement,
-    activeTool,
-    canvasId,
-    ourId: ourId.current,
-    channelRef,
-    supabase,
-    setEditingElementId,
-    setActiveTool,
-    camera,
-    setCamera,
-  });
+  const { handlePointerDown, handlePointerMove, handlePointerUp, isDrawing } =
+    usePointerEvents({
+      elements,
+      setElements,
+      previewElement,
+      setPreviewElement,
+      activeTool,
+      canvasId,
+      ourId: ourId.current,
+      channelRef,
+      canvasRef,
+      supabase,
+      setEditingElementId,
+      setActiveTool,
+      camera,
+      setCamera,
+    });
 
   // --- Event Handlers ---
   const handleToolSelect = (tool: Tool) => {
@@ -126,7 +122,6 @@ export default function DrawingCanvas({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onWheel={handleWheel}
       />
       <CursorsOverlay cursors={cursors} camera={camera} />
       <DebugInfo activeTool={activeTool} isDrawing={isDrawing} />

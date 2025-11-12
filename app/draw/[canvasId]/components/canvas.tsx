@@ -5,7 +5,6 @@ type CanvasProps = {
   onPointerDown: (e: MouseEvent<HTMLCanvasElement>) => void;
   onPointerMove: (e: MouseEvent<HTMLCanvasElement>) => void;
   onPointerUp: (e: MouseEvent<HTMLCanvasElement>) => void;
-  onWheel: React.WheelEventHandler<HTMLCanvasElement>;
 };
 
 export default function Canvas({
@@ -13,7 +12,6 @@ export default function Canvas({
   onPointerDown,
   onPointerMove,
   onPointerUp,
-  onWheel,
 }: CanvasProps) {
   return (
     <canvas
@@ -21,7 +19,6 @@ export default function Canvas({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onWheel={onWheel}
       className="w-full h-full bg-gray-50"
     />
   );

@@ -44,6 +44,7 @@ export type Action = "idle" | "drawing" | "moving";
 export type Camera = {
   x: number;
   y: number;
+  zoom: number;
 };
 
 export const TOOLS = ["select", "rectangle", "arrow", "text"] as const;
