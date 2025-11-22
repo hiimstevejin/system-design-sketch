@@ -32,7 +32,6 @@ export default function DrawingCanvas({
 }: DrawingCanvasProps) {
   const supabase = createClient();
 
-  // --- Core State ---
   const [elements, setElements] = useState<Element[]>(initialElements);
   const [activeTool, setActiveTool] = useState<Tool>("select");
   const [cursors, setCursors] = useState<CursorPosition[]>([]);
@@ -40,17 +39,38 @@ export default function DrawingCanvas({
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
 
-  // --- Refs ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const ourId = useRef(nanoid());
 
-  // --- Custom Hooks ---
   const channelRef = useRealtime({
     canvasId,
     ourId: ourId.current,
     setElements,
     setCursors,
+  });
+
+  const {
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    isDrawing,
+    selectedElementId,
+  } = usePointerEvents({
+    elements,
+    setElements,
+    previewElement,
+    setPreviewElement,
+    activeTool,
+    canvasId,
+    ourId: ourId.current,
+    channelRef,
+    canvasRef,
+    supabase,
+    setEditingElementId,
+    setActiveTool,
+    camera,
+    setCamera,
   });
 
   useCanvasRenderer({
@@ -60,26 +80,8 @@ export default function DrawingCanvas({
     previewElement,
     editingElementId,
     camera,
+    selectedElementId,
   });
-
-  const { handlePointerDown, handlePointerMove, handlePointerUp, isDrawing } =
-    usePointerEvents({
-      elements,
-      setElements,
-      previewElement,
-      setPreviewElement,
-      activeTool,
-      canvasId,
-      ourId: ourId.current,
-      channelRef,
-      canvasRef,
-      supabase,
-      setEditingElementId,
-      setActiveTool,
-      camera,
-      setCamera,
-    });
-
   // --- Event Handlers ---
   const handleToolSelect = (tool: Tool) => {
     setActiveTool(tool);

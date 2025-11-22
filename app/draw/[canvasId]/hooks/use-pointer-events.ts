@@ -415,5 +415,6 @@ export function usePointerEvents({
     handlePointerMove,
     handlePointerUp,
     isDrawing,
+    selectedElementId,
   };
 }

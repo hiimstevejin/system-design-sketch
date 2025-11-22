@@ -8,6 +8,7 @@ type UseCanvasRendererParams = {
   previewElement: PreviewElement;
   editingElementId: string | null;
   camera: Camera;
+  selectedElementId: string | null;
 };
 
 export function useCanvasRenderer({
@@ -17,6 +18,7 @@ export function useCanvasRenderer({
   previewElement,
   editingElementId,
   camera,
+  selectedElementId,
 }: UseCanvasRendererParams) {
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -45,6 +47,14 @@ export function useCanvasRenderer({
       drawElement(context, element);
     });
 
+    if (selectedElementId) {
+      const selectedElement = elements.find(
+        (el) => el.id === selectedElementId,
+      );
+      if (selectedElement && selectedElement.id !== editingElementId) {
+        drawSelectionBorder(context, selectedElement);
+      }
+    }
     // Draw the preview element
     if (previewElement) {
       drawElement(context, previewElement, "blue");
@@ -58,9 +68,75 @@ export function useCanvasRenderer({
     previewElement,
     editingElementId,
     camera,
+    selectedElementId,
   ]);
 }
 
+function drawSelectionBorder(
+  context: CanvasRenderingContext2D,
+  element: Element,
+) {
+  const handleSize = 8;
+  const halfHandle = handleSize / 2;
+
+  context.save();
+  context.strokeStyle = "#3b82f6"; // blue-500
+  context.lineWidth = 1;
+
+  let x = 0;
+  let y = 0;
+  let width = 0;
+  let height = 0;
+
+  // 1. Determine dimensions based on type
+  if (element.properties.type === "rect") {
+    // Rectangles have explicit width/height
+    x = element.properties.x;
+    y = element.properties.y;
+    width = element.properties.width;
+    height = element.properties.height;
+  } else if (element.properties.type === "text") {
+    // Text elements don't have width/height in the DB
+    // We calculate a rough box based on char length
+    x = element.properties.x;
+    y = element.properties.y;
+    width = element.properties.text.length * 8 + 10;
+    height = 20;
+  } else {
+    // Arrows need different logic (start/end points), skip for now
+    context.restore();
+    return;
+  }
+
+  // 2. Draw the outline
+  context.strokeRect(x - 4, y - 4, width + 8, height + 8);
+
+  // 3. Draw Handles
+  context.fillStyle = "white";
+  const handles = [
+    { x: x - 4, y: y - 4 }, // Top-left
+    { x: x + width + 4, y: y - 4 }, // Top-right
+    { x: x + width + 4, y: y + height + 4 }, // Bottom-right
+    { x: x - 4, y: y + height + 4 }, // Bottom-left
+  ];
+
+  handles.forEach((handle) => {
+    context.fillRect(
+      handle.x - halfHandle,
+      handle.y - halfHandle,
+      handleSize,
+      handleSize,
+    );
+    context.strokeRect(
+      handle.x - halfHandle,
+      handle.y - halfHandle,
+      handleSize,
+      handleSize,
+    );
+  });
+
+  context.restore();
+}
 // Helper function to draw any element
 function drawElement(
   context: CanvasRenderingContext2D,
