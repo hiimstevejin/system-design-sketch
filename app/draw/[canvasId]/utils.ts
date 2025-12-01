@@ -1,4 +1,4 @@
-import { Camera, Element } from "./types";
+import { Camera, Element, HandleType } from "./types";
 
 // convert screen coordinates to world coordinates
 export function screenToWorld(x: number, y: number, camera: Camera) {
@@ -98,5 +98,70 @@ export function getElementAtPosition(
     }
     // Add 'else if' for other shapes later
   }
+  return null;
+}
+
+export function getResizeHandleAtPosition(
+  x: number,
+  y: number,
+  element: Element,
+): HandleType {
+  const { properties } = element;
+
+  // 1. Arrows use different logic (endpoints), so ignore them for box resizing
+  if (properties.type === "arrow") {
+    return null;
+  }
+
+  // 2. Initialize variables for the bounding box
+  let elX: number, elY: number, w: number, h: number;
+
+  // 3. Narrow the type to safely access properties
+  if (properties.type === "rect") {
+    // TypeScript knows this is RectProperties here
+    elX = properties.x;
+    elY = properties.y;
+    w = properties.width;
+    h = properties.height;
+  } else if (properties.type === "text") {
+    // TypeScript knows this is TextProperties here
+    elX = properties.x;
+    elY = properties.y;
+    // Calculate roughly, just like in the renderer
+    w = properties.text.length * 8;
+    h = 16;
+  } else {
+    return null;
+  }
+
+  // 4. Perform the hit detection using the normalized variables
+  const handleSize = 8;
+  const padding = handleSize / 2 + 5; // Added extra padding for easier clicking
+
+  // Top-Left
+  if (Math.abs(x - (elX - 4)) <= padding && Math.abs(y - (elY - 4)) <= padding)
+    return "tl";
+
+  // Top-Right
+  if (
+    Math.abs(x - (elX + w + 4)) <= padding &&
+    Math.abs(y - (elY - 4)) <= padding
+  )
+    return "tr";
+
+  // Bottom-Left
+  if (
+    Math.abs(x - (elX - 4)) <= padding &&
+    Math.abs(y - (elY + h + 4)) <= padding
+  )
+    return "bl";
+
+  // Bottom-Right
+  if (
+    Math.abs(x - (elX + w + 4)) <= padding &&
+    Math.abs(y - (elY + h + 4)) <= padding
+  )
+    return "br";
+
   return null;
 }

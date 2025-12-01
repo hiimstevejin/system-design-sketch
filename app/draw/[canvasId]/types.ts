@@ -49,3 +49,4 @@ export type Camera = {
 
 export const TOOLS = ["select", "rectangle", "arrow", "text"] as const;
 export type Tool = (typeof TOOLS)[number];
+export type HandleType = "tl" | "tr" | "bl" | "br" | null;
