@@ -45,11 +45,7 @@ export default function EditableText({
     });
   };
 
-  const { x: screenX, y: screenY } = worldToScreen(
-    element.properties.x,
-    element.properties.y,
-    camera,
-  );
+  const { x: screenX, y: screenY } = worldToScreen(x, y, camera);
   return (
     <textarea
       value={currentText}
@@ -60,14 +56,20 @@ export default function EditableText({
         top: screenY,
         left: screenX,
         font: "16px sans-serif",
-        border: "1px dashed #333",
+        border: "none",
         outline: "none",
         resize: "none",
         overflow: "hidden",
         background: "transparent",
         whiteSpace: "pre",
-        transform: `scale(${camera.zoom})`,
-        transformOrigin: "top left",
+        textAlign: "center",
+        color: "black",
+        height: "18px",
+        padding: 0,
+        margin: 0,
+        lineHeight: 1,
+        transform: `translate(-50%,-45%) scale(${camera.zoom})`,
+        transformOrigin: "center center",
       }}
       autoFocus
       onFocus={(e) => e.target.select()}

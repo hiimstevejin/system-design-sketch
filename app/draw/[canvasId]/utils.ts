@@ -88,10 +88,10 @@ export function getElementAtPosition(
       const width = text.length * 8;
       const height = 16;
       if (
-        x >= elX - padding &&
-        x <= elX + width + padding &&
-        y >= elY - height - padding &&
-        y <= elY + height + padding
+        x >= elX - width / 2 - padding &&
+        x <= elX + width / 2 + padding &&
+        y >= elY - height / 2 - padding &&
+        y <= elY + height / 2 + padding
       ) {
         return el;
       }
