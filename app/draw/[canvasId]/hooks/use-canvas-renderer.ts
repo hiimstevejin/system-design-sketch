@@ -163,6 +163,8 @@ function drawElement(
     context.stroke();
   } else if (element.properties.type === "text") {
     context.font = "16px sans-serif";
+    context.textBaseline = "middle";
+    context.textAlign = "center";
     context.fillText(
       element.properties.text,
       element.properties.x,

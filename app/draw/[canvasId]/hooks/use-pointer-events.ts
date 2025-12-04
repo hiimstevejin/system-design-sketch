@@ -1,8 +1,20 @@
 import { useState, useRef, MouseEvent, useEffect, useCallback } from "react";
 import { nanoid } from "nanoid";
 import { SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
-import { Element, PreviewElement, Action, Tool, Camera } from "../types";
-import { getElementAtPosition, screenToWorld } from "../utils";
+import {
+  Element,
+  PreviewElement,
+  Action,
+  Tool,
+  Camera,
+  HandleType,
+  DragStartPos,
+} from "../types";
+import {
+  getElementAtPosition,
+  getResizeHandleAtPosition,
+  screenToWorld,
+} from "../utils";
 
 type UsePointerEventsParams = {
   elements: Element[];
@@ -20,12 +32,6 @@ type UsePointerEventsParams = {
   camera: Camera;
   setCamera: React.Dispatch<React.SetStateAction<Camera>>;
 };
-
-// This type must match the ref in drawing-canvas.tsx
-type DragStartPos =
-  | { x: number; y: number }
-  | { x: number; y: number; x2: number; y2: number }
-  | null;
 
 export function usePointerEvents({
   elements,
@@ -48,6 +54,7 @@ export function usePointerEvents({
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
   );
+  const [selectedHandle, setSelectedHandle] = useState<HandleType>(null);
   const dragStartElementPos = useRef<DragStartPos>(null);
   const prevElementsRef = useRef<Element[] | null>(null);
 
@@ -145,8 +152,43 @@ export function usePointerEvents({
         e.nativeEvent.offsetY,
         camera,
       );
-
+      // debug
+      console.log("Click at:", worldX, worldY);
+      // debug
       if (activeTool === "select") {
+        if (selectedElementId) {
+          const selectedElement = elements.find(
+            (el) => el.id === selectedElementId,
+          );
+          if (selectedElement) {
+            const handle = getResizeHandleAtPosition(
+              worldX,
+              worldY,
+              selectedElement,
+            );
+            //debug
+            console.log("Handle detected:", handle);
+            //debug
+            if (handle) {
+              //debug
+              console.log("Starting resize");
+              //debug
+              setAction("resize");
+              setSelectedHandle(handle);
+              setStartPoint({ x: worldX, y: worldY });
+
+              if (selectedElement.properties.type === "rect") {
+                dragStartElementPos.current = {
+                  x: selectedElement.properties.x,
+                  y: selectedElement.properties.y,
+                  width: selectedElement.properties.width,
+                  height: selectedElement.properties.height,
+                };
+              }
+              return;
+            }
+          }
+        }
         const element = getElementAtPosition(worldX, worldY, elements);
         if (element) {
           setAction("moving");
@@ -169,6 +211,8 @@ export function usePointerEvents({
               y2: element.properties.y2,
             };
           }
+        } else {
+          setSelectedElementId(null);
         }
       } else if (activeTool == "text") {
         const newTextElement: Element = {
@@ -208,6 +252,7 @@ export function usePointerEvents({
       setActiveTool,
       supabase,
       camera,
+      selectedElementId,
     ],
   );
 
@@ -253,6 +298,56 @@ export function usePointerEvents({
         }
       }
 
+      if (
+        action === "resize" &&
+        selectedElementId &&
+        dragStartElementPos.current &&
+        selectedHandle
+      ) {
+        const original = dragStartElementPos.current;
+        if (!("width" in original) || !original.width) return;
+
+        setElements((prev) =>
+          prev.map((el) => {
+            if (el.id === selectedElementId && el.properties.type === "rect") {
+              const dx = worldX - startPoint.x;
+              const dy = worldY - startPoint.y;
+
+              let { x, y, width = 0, height = 0 } = original;
+
+              // Apply math based on which handle is dragged
+              switch (selectedHandle) {
+                case "br": // Bottom Right: Width & Height
+                  width += dx;
+                  height += dy;
+                  break;
+                case "bl": // Bottom Left: X & Width, Height
+                  x += dx;
+                  width -= dx;
+                  height += dy;
+                  break;
+                case "tr": // Top Right: Y & Height, Width
+                  y += dy;
+                  width += dx;
+                  height -= dy;
+                  break;
+                case "tl": // Top Left: X, Y, Width, Height
+                  x += dx;
+                  y += dy;
+                  width -= dx;
+                  height -= dy;
+                  break;
+              }
+
+              return {
+                ...el,
+                properties: { ...el.properties, x, y, width, height },
+              };
+            }
+            return el;
+          }),
+        );
+      }
       // Handle moving
       if (
         action === "moving" &&
@@ -310,6 +405,7 @@ export function usePointerEvents({
       setPreviewElement,
       startPoint,
       camera,
+      selectedHandle,
     ],
   );
 
@@ -372,28 +468,25 @@ export function usePointerEvents({
         dragStartElementPos.current = null;
       }
 
-      if (action === "moving" && selectedElementId) {
+      if ((action === "moving" || action === "resize") && selectedElementId) {
         const hasMoved = startPoint.x !== worldX || startPoint.y !== worldY;
 
-        if (hasMoved) {
-          const movedElement = elements.find(
+        if (action === "resize" || hasMoved) {
+          const updatedElement = elements.find(
             (el) => el.id === selectedElementId,
           );
-          if (movedElement) {
+          if (updatedElement) {
             const { error } = await supabase
               .from("elements")
-              .update({ properties: movedElement.properties })
+              .update({ properties: updatedElement.properties })
               .eq("id", selectedElementId);
             if (error) console.error("Error updating element:", error);
           }
-          setAction("idle");
-          setSelectedElementId(null);
-          dragStartElementPos.current = null;
-        } else {
-          setAction("idle");
         }
       }
-      // Reset actions
+      setAction("idle");
+      dragStartElementPos.current = null;
+      setSelectedHandle(null);
     },
     [
       action,
