@@ -40,6 +40,7 @@ export default function DrawingCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const ourId = useRef(nanoid());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const channelRef = useRealtime({
     canvasId,
@@ -82,8 +83,12 @@ export default function DrawingCanvas({
   });
   // --- Event Handlers ---
   const handleToolSelect = (tool: Tool) => {
-    setActiveTool(tool);
-    setPreviewElement(null);
+    if (tool === "image") {
+      fileInputRef.current?.click();
+    } else {
+      setActiveTool(tool);
+      setPreviewElement(null);
+    }
   };
 
   const handleTextChange = (id: string, newText: string) => {
@@ -138,6 +143,44 @@ export default function DrawingCanvas({
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileName = `${nanoid()}-${file.name}`;
+    const { data, error } = await supabase.storage
+      .from("canvas-assets")
+      .upload(fileName, file);
+
+    if (error) {
+      console.error("Upload error:", error);
+      return;
+    }
+    const { data: urlData } = supabase.storage
+      .from("canvas-assets")
+      .getPublicUrl(fileName);
+
+    const newElement: Element = {
+      id: nanoid(),
+      canvas_id: canvasId,
+      properties: {
+        type: "image",
+        x: -camera.x + 100, // Roughly center in view (simple math)
+        y: -camera.y + 100,
+        width: 200, // Default size
+        height: 200,
+        src: urlData.publicUrl,
+      },
+      created_at: new Date().toISOString(),
+    };
+
+    setElements((cur) => [...cur, newElement]);
+    await supabase.from("elements").insert(newElement);
+
+    // Reset input so you can upload same file again
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const elementToEdit = elements.find(
     (el) => el.id === editingElementId && el.properties.type === "text",
   ) as (Element & { properties: { type: "text" } }) | undefined;
@@ -146,6 +189,13 @@ export default function DrawingCanvas({
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       <Toolbar activeTool={activeTool} onToolSelect={handleToolSelect} />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImageUpload}
+        accept="image/*"
+        className="hidden"
+      />
       {selectedElement && (
         <PropertiesPanel
           element={selectedElement}

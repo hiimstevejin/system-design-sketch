@@ -63,7 +63,7 @@ export function getElementAtPosition(
   // Loop backwards to select the top-most element
   for (let i = elements.length - 1; i >= 0; i--) {
     const el = elements[i];
-    if (el.properties.type === "rect") {
+    if (el.properties.type === "rect" || el.properties.type === "image") {
       // add padding so that the element is selected even if the cursor is slightly outside the element
       const padding = 10;
       const { x: elX, y: elY, width: elW, height: elH } = el.properties;
@@ -109,7 +109,7 @@ export function getResizeHandleAtPosition(
   const { properties } = element;
   const threshold = 10;
 
-  if (properties.type === "rect") {
+  if (properties.type === "rect" || properties.type === "image") {
     const { x: elX, y: elY, width, height } = properties;
     // Check distances to the four corners
     if (Math.abs(x - elX) <= threshold && Math.abs(y - elY) <= threshold)

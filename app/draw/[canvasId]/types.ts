@@ -4,6 +4,15 @@ type SharedProperties = {
   strokeWidth?: number;
 };
 
+type ImageProperties = SharedProperties & {
+  type: "image";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  src: string;
+};
+
 type RectProperties = SharedProperties & {
   type: "rect";
   x: number;
@@ -30,7 +39,11 @@ type TextProperties = SharedProperties & {
 export type Element = {
   id: string;
   canvas_id: string;
-  properties: RectProperties | ArrowProperties | TextProperties;
+  properties:
+    | RectProperties
+    | ArrowProperties
+    | TextProperties
+    | ImageProperties;
   created_at: string;
 };
 
@@ -53,7 +66,7 @@ export type Camera = {
   zoom: number;
 };
 
-export const TOOLS = ["select", "rectangle", "arrow", "text"] as const;
+export const TOOLS = ["select", "rectangle", "arrow", "text", "image"] as const;
 export type Tool = (typeof TOOLS)[number];
 export type HandleType = "tl" | "tr" | "bl" | "br" | "start" | "end" | null;
 
