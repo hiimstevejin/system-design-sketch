@@ -9,7 +9,7 @@ type PageProps = {
   }>;
 };
 
-// Sever component that fetches initial data
+// takes url param and fetches canvas details
 export default async function CanvasPage({ params }: PageProps) {
   const supabase = await createClient();
   const { canvasId } = await params;
@@ -29,14 +29,12 @@ export default async function CanvasPage({ params }: PageProps) {
 
   if (canvasError || elementsError) {
     console.error(canvasError || elementsError);
-    //TODO
-    // Make better error
+    //TODO improve error message
     return <div>Error loading canvas.</div>;
   }
 
   if (!canvasData) {
-    //TODO
-    // make better error
+    //TODO improve error message
     return <div>Canvas not found</div>;
   }
 

@@ -28,7 +28,6 @@ export default function CursorsOverlay({
             key={cursor.id}
             className="absolute top-0 left-0 z-50 pointer-events-none"
             style={{
-              // 4. Render at the calculated SCREEN position
               transform: `translate(${screenX}px, ${screenY}px)`,
             }}
           >
