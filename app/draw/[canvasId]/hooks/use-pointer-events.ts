@@ -152,9 +152,6 @@ export function usePointerEvents({
         e.nativeEvent.offsetY,
         camera,
       );
-      // debug
-      console.log("Click at:", worldX, worldY);
-      // debug
       if (activeTool === "select") {
         if (selectedElementId) {
           const selectedElement = elements.find(
@@ -166,13 +163,7 @@ export function usePointerEvents({
               worldY,
               selectedElement,
             );
-            //debug
-            console.log("Handle detected:", handle);
-            //debug
             if (handle) {
-              //debug
-              console.log("Starting resize");
-              //debug
               setAction("resize");
               setSelectedHandle(handle);
               setStartPoint({ x: worldX, y: worldY });
@@ -183,6 +174,13 @@ export function usePointerEvents({
                   y: selectedElement.properties.y,
                   width: selectedElement.properties.width,
                   height: selectedElement.properties.height,
+                };
+              } else if (selectedElement.properties.type === "arrow") {
+                dragStartElementPos.current = {
+                  x: selectedElement.properties.x,
+                  y: selectedElement.properties.y,
+                  x2: selectedElement.properties.x2,
+                  y2: selectedElement.properties.y2,
                 };
               }
               return;
@@ -305,44 +303,77 @@ export function usePointerEvents({
         selectedHandle
       ) {
         const original = dragStartElementPos.current;
-        if (!("width" in original) || !original.width) return;
+        const dx = worldX - startPoint.x;
+        const dy = worldY - startPoint.y;
 
         setElements((prev) =>
           prev.map((el) => {
-            if (el.id === selectedElementId && el.properties.type === "rect") {
-              const dx = worldX - startPoint.x;
-              const dy = worldY - startPoint.y;
+            if (el.id === selectedElementId) {
+              if (el.properties.type === "rect") {
+                // Safety check: ensure original data has width
+                if (!("width" in original)) return el;
 
-              let { x, y, width = 0, height = 0 } = original;
+                let { x, y, width = 0, height = 0 } = original;
 
-              // Apply math based on which handle is dragged
-              switch (selectedHandle) {
-                case "br": // Bottom Right: Width & Height
-                  width += dx;
-                  height += dy;
-                  break;
-                case "bl": // Bottom Left: X & Width, Height
-                  x += dx;
-                  width -= dx;
-                  height += dy;
-                  break;
-                case "tr": // Top Right: Y & Height, Width
-                  y += dy;
-                  width += dx;
-                  height -= dy;
-                  break;
-                case "tl": // Top Left: X, Y, Width, Height
-                  x += dx;
-                  y += dy;
-                  width -= dx;
-                  height -= dy;
-                  break;
+                switch (selectedHandle) {
+                  case "br":
+                    width += dx;
+                    height += dy;
+                    break;
+                  case "bl":
+                    x += dx;
+                    width -= dx;
+                    height += dy;
+                    break;
+                  case "tr":
+                    y += dy;
+                    width += dx;
+                    height -= dy;
+                    break;
+                  case "tl":
+                    x += dx;
+                    y += dy;
+                    width -= dx;
+                    height -= dy;
+                    break;
+                }
+
+                return {
+                  ...el,
+                  properties: { ...el.properties, x, y, width, height },
+                };
+              } else if (el.properties.type === "arrow") {
+                // Safety check: ensure original data has x2/y2
+                if (!("x2" in original)) return el;
+
+                const { x, y, x2, y2 } = original;
+
+                // Move Start Point
+                if (selectedHandle === "start") {
+                  return {
+                    ...el,
+                    properties: {
+                      ...el.properties,
+                      x: x + dx,
+                      y: y + dy,
+                      // x2/y2 stay the same
+                    },
+                  };
+                }
+
+                // Move End Point
+                if (selectedHandle === "end") {
+                  return {
+                    ...el,
+                    properties: {
+                      ...el.properties,
+                      // x/y stay the same
+                      x2: x2! + dx,
+                      y2: y2! + dy,
+                    },
+                  };
+                }
               }
-
-              return {
-                ...el,
-                properties: { ...el.properties, x, y, width, height },
-              };
             }
             return el;
           }),

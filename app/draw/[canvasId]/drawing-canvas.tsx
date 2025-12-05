@@ -4,19 +4,16 @@ import { useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import { createClient } from "@/lib/supabase/client";
 
-// Import components
 import Toolbar from "./components/toolbar";
 import Canvas from "./components/canvas";
 import CursorsOverlay from "./components/cursors-overlay";
 import DebugInfo from "./components/debug-info";
 import EditableText from "./components/editable-text";
 
-// Import hooks
 import { useRealtime } from "./hooks/use-realtime";
 import { useCanvasRenderer } from "./hooks/use-canvas-renderer";
 import { usePointerEvents } from "./hooks/use-pointer-events";
 
-// Import types
 import { Element, PreviewElement, CursorPosition, Tool } from "./types";
 
 type DrawingCanvasProps = {
@@ -111,7 +108,6 @@ export default function DrawingCanvas({
     setEditingElementId(null);
   };
 
-  // --- Render ---
   const elementToEdit = elements.find(
     (el) => el.id === editingElementId && el.properties.type === "text",
   ) as (Element & { properties: { type: "text" } }) | undefined;

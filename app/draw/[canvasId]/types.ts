@@ -39,7 +39,7 @@ export type CursorPosition = {
   y: number;
 };
 
-export type Action = "idle" | "drawing" | "moving";
+export type Action = "idle" | "drawing" | "moving" | "resize";
 
 export type Camera = {
   x: number;
@@ -49,4 +49,9 @@ export type Camera = {
 
 export const TOOLS = ["select", "rectangle", "arrow", "text"] as const;
 export type Tool = (typeof TOOLS)[number];
-export type HandleType = "tl" | "tr" | "bl" | "br" | null;
+export type HandleType = "tl" | "tr" | "bl" | "br" | "start" | "end" | null;
+
+export type DragStartPos =
+  | { x: number; y: number; width?: number; height?: number }
+  | { x: number; y: number; x2: number; y2: number }
+  | null;

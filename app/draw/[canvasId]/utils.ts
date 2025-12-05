@@ -107,61 +107,44 @@ export function getResizeHandleAtPosition(
   element: Element,
 ): HandleType {
   const { properties } = element;
+  const threshold = 10;
 
-  // 1. Arrows use different logic (endpoints), so ignore them for box resizing
-  if (properties.type === "arrow") {
-    return null;
-  }
-
-  // 2. Initialize variables for the bounding box
-  let elX: number, elY: number, w: number, h: number;
-
-  // 3. Narrow the type to safely access properties
   if (properties.type === "rect") {
-    // TypeScript knows this is RectProperties here
-    elX = properties.x;
-    elY = properties.y;
-    w = properties.width;
-    h = properties.height;
-  } else if (properties.type === "text") {
-    // TypeScript knows this is TextProperties here
-    elX = properties.x;
-    elY = properties.y;
-    // Calculate roughly, just like in the renderer
-    w = properties.text.length * 8;
-    h = 16;
-  } else {
-    return null;
+    const { x: elX, y: elY, width, height } = properties;
+    // Check distances to the four corners
+    if (Math.abs(x - elX) <= threshold && Math.abs(y - elY) <= threshold)
+      return "tl";
+    if (
+      Math.abs(x - (elX + width)) <= threshold &&
+      Math.abs(y - elY) <= threshold
+    )
+      return "tr";
+    if (
+      Math.abs(x - elX) <= threshold &&
+      Math.abs(y - (elY + height)) <= threshold
+    )
+      return "bl";
+    if (
+      Math.abs(x - (elX + width)) <= threshold &&
+      Math.abs(y - (elY + height)) <= threshold
+    )
+      return "br";
+  } else if (properties.type === "arrow") {
+    const { x: startX, y: startY, x2, y2 } = properties;
+
+    // Check Start Handle
+    if (
+      Math.abs(x - startX) <= threshold &&
+      Math.abs(y - startY) <= threshold
+    ) {
+      return "start";
+    }
+
+    // Check End Handle
+    if (Math.abs(x - x2) <= threshold && Math.abs(y - y2) <= threshold) {
+      return "end";
+    }
   }
-
-  // 4. Perform the hit detection using the normalized variables
-  const handleSize = 8;
-  const padding = handleSize / 2 + 5; // Added extra padding for easier clicking
-
-  // Top-Left
-  if (Math.abs(x - (elX - 4)) <= padding && Math.abs(y - (elY - 4)) <= padding)
-    return "tl";
-
-  // Top-Right
-  if (
-    Math.abs(x - (elX + w + 4)) <= padding &&
-    Math.abs(y - (elY - 4)) <= padding
-  )
-    return "tr";
-
-  // Bottom-Left
-  if (
-    Math.abs(x - (elX - 4)) <= padding &&
-    Math.abs(y - (elY + h + 4)) <= padding
-  )
-    return "bl";
-
-  // Bottom-Right
-  if (
-    Math.abs(x - (elX + w + 4)) <= padding &&
-    Math.abs(y - (elY + h + 4)) <= padding
-  )
-    return "br";
 
   return null;
 }
