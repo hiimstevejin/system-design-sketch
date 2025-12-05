@@ -157,10 +157,35 @@ function drawElement(
       element.properties.height,
     );
   } else if (element.properties.type === "arrow") {
+    const { x, y, x2, y2 } = element.properties;
+
+    if (
+      typeof x !== "number" ||
+      typeof y !== "number" ||
+      typeof x2 !== "number" ||
+      typeof y2 !== "number"
+    ) {
+      return;
+    }
     context.beginPath();
-    context.moveTo(element.properties.x, element.properties.y);
-    context.lineTo(element.properties.x2, element.properties.y2);
+    context.moveTo(x, y);
+    context.lineTo(x2, y2);
     context.stroke();
+    const angle = Math.atan2(y2 - y, x2 - x);
+    const headLength = 15;
+    context.save();
+
+    context.translate(x2, y2);
+    context.rotate(angle);
+
+    context.beginPath();
+    context.moveTo(0, 0);
+    context.lineTo(-headLength, 6);
+    context.moveTo(0, 0);
+    context.lineTo(-headLength, -6);
+    context.stroke();
+
+    context.restore();
   } else if (element.properties.type === "text") {
     context.font = "16px sans-serif";
     context.textBaseline = "middle";
