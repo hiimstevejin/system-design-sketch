@@ -7,6 +7,7 @@ type CanvasProps = {
   onPointerUp: (e: MouseEvent<HTMLCanvasElement>) => void;
 };
 
+// dummy canvas prop that accepts event listeners and canvasRef
 export default function Canvas({
   canvasRef,
   onPointerDown,

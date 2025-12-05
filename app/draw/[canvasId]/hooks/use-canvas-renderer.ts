@@ -155,15 +155,27 @@ function drawSelectionBorder(
 function drawElement(
   context: CanvasRenderingContext2D,
   element: Element | PreviewElement,
-  color: string = "black",
+  defaultColor: string = "black",
 ) {
   if (!element) return;
 
-  context.strokeStyle = color;
-  context.fillStyle = color;
-  context.lineWidth = 2;
+  const stroke = element.properties.stroke || defaultColor;
+  const fill = element.properties.fill || "transparent";
+  const width = element.properties.strokeWidth || 2;
+
+  context.strokeStyle = stroke;
+  context.fillStyle = fill;
+  context.lineWidth = width;
 
   if (element.properties.type === "rect") {
+    if (fill !== "transparent") {
+      context.fillRect(
+        element.properties.x,
+        element.properties.y,
+        element.properties.width,
+        element.properties.height,
+      );
+    }
     context.strokeRect(
       element.properties.x,
       element.properties.y,
@@ -204,6 +216,7 @@ function drawElement(
     context.font = "16px sans-serif";
     context.textBaseline = "middle";
     context.textAlign = "center";
+    context.fillStyle = stroke;
     context.fillText(
       element.properties.text,
       element.properties.x,

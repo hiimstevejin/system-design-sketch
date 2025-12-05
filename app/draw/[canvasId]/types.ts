@@ -1,4 +1,10 @@
-type RectProperties = {
+type SharedProperties = {
+  stroke?: string;
+  fill?: string;
+  strokeWidth?: number;
+};
+
+type RectProperties = SharedProperties & {
   type: "rect";
   x: number;
   y: number;
@@ -6,7 +12,7 @@ type RectProperties = {
   height: number;
 };
 
-type ArrowProperties = {
+type ArrowProperties = SharedProperties & {
   type: "arrow";
   x: number;
   y: number;
@@ -14,7 +20,7 @@ type ArrowProperties = {
   y2: number;
 };
 
-type TextProperties = {
+type TextProperties = SharedProperties & {
   type: "text";
   x: number;
   y: number;

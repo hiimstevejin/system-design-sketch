@@ -15,6 +15,7 @@ import { useCanvasRenderer } from "./hooks/use-canvas-renderer";
 import { usePointerEvents } from "./hooks/use-pointer-events";
 
 import { Element, PreviewElement, CursorPosition, Tool } from "./types";
+import PropertiesPanel from "./components/properties-panel";
 
 type DrawingCanvasProps = {
   canvasId: string;
@@ -98,7 +99,6 @@ export default function DrawingCanvas({
   };
 
   const handleTextBlur = async (element: Element) => {
-    // Save to Supabase
     const { error } = await supabase
       .from("elements")
       .update({ properties: element.properties })
@@ -108,13 +108,50 @@ export default function DrawingCanvas({
     setEditingElementId(null);
   };
 
+  const handleUpdateElement = async (
+    id: string,
+    updates: Partial<Element["properties"]>,
+  ) => {
+    setElements((current) =>
+      current.map((el) => {
+        if (el.id === id) {
+          return {
+            ...el,
+            properties: {
+              ...el.properties,
+              ...updates,
+            } as Element["properties"],
+          };
+        }
+        return el;
+      }),
+    );
+
+    const element = elements.find((el) => el.id === id);
+    if (element) {
+      const { error } = await supabase
+        .from("elements")
+        .update({ properties: { ...element.properties, ...updates } })
+        .eq("id", id);
+
+      if (error) console.error("Error updating properties:", error);
+    }
+  };
+
   const elementToEdit = elements.find(
     (el) => el.id === editingElementId && el.properties.type === "text",
   ) as (Element & { properties: { type: "text" } }) | undefined;
+  const selectedElement = elements.find((el) => el.id === selectedElementId);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       <Toolbar activeTool={activeTool} onToolSelect={handleToolSelect} />
+      {selectedElement && (
+        <PropertiesPanel
+          element={selectedElement}
+          updateAction={handleUpdateElement}
+        />
+      )}
       <Canvas
         canvasRef={canvasRef}
         onPointerDown={handlePointerDown}
