@@ -4,18 +4,18 @@ import { useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import { createClient } from "@/lib/supabase/client";
 
-import Toolbar from "./components/toolbar";
-import Canvas from "./components/canvas";
-import CursorsOverlay from "./components/cursors-overlay";
-import DebugInfo from "./components/debug-info";
-import EditableText from "./components/editable-text";
+import Toolbar from "./_components/toolbar";
+import Canvas from "./_components/canvas";
+import CursorsOverlay from "./_components/cursors-overlay";
+import DebugInfo from "./_components/debug-info";
+import EditableText from "./_components/editable-text";
 
-import { useRealtime } from "./hooks/use-realtime";
-import { useCanvasRenderer } from "./hooks/use-canvas-renderer";
-import { usePointerEvents } from "./hooks/use-pointer-events";
+import { useRealtime } from "./_hooks/use-realtime";
+import { useCanvasRenderer } from "./_hooks/use-canvas-renderer";
+import { usePointerEvents } from "./_hooks/use-pointer-events";
 
 import { Element, PreviewElement, CursorPosition, Tool } from "./types";
-import PropertiesPanel from "./components/properties-panel";
+import PropertiesPanel from "./_components/properties-panel";
 
 type DrawingCanvasProps = {
   canvasId: string;
