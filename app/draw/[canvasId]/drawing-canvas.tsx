@@ -160,13 +160,24 @@ export default function DrawingCanvas({
       .from("canvas-assets")
       .getPublicUrl(fileName);
 
+    const imgWidth = 200;
+    const imgHeight = 200;
+
+    // B. Calculate center of the viewport in Screen Coordinates
+    const screenCenterX = window.innerWidth / 2;
+    const screenCenterY = window.innerHeight / 2;
+
+    // C. Convert to World Coordinates (accounting for Pan & Zoom)
+    const worldCenterX = (screenCenterX - camera.x) / camera.zoom;
+    const worldCenterY = (screenCenterY - camera.y) / camera.zoom;
+
     const newElement: Element = {
       id: nanoid(),
       canvas_id: canvasId,
       properties: {
         type: "image",
-        x: -camera.x + 100, // Roughly center in view (simple math)
-        y: -camera.y + 100,
+        x: worldCenterX - imgWidth / 2,
+        y: worldCenterY - imgHeight / 2,
         width: 200, // Default size
         height: 200,
         src: urlData.publicUrl,
