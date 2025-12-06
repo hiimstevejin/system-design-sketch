@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import { createClient } from "@/lib/supabase/client";
 
@@ -82,14 +82,49 @@ export default function DrawingCanvas({
     selectedElementId,
   });
   // --- Event Handlers ---
-  const handleToolSelect = (tool: Tool) => {
+  const handleToolSelect = useCallback((tool: Tool) => {
     if (tool === "image") {
       fileInputRef.current?.click();
     } else {
       setActiveTool(tool);
       setPreviewElement(null);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't switch tools if user is typing in a text box
+      if (
+        document.activeElement?.tagName === "TEXTAREA" ||
+        document.activeElement?.tagName === "INPUT"
+      ) {
+        return;
+      }
+
+      switch (e.key) {
+        case "1":
+          handleToolSelect("select");
+          break;
+        case "2":
+          handleToolSelect("rectangle");
+          break;
+        case "3":
+          handleToolSelect("arrow");
+          break;
+        case "4":
+          handleToolSelect("text");
+          break;
+        case "5":
+          handleToolSelect("image");
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleToolSelect]);
 
   const handleTextChange = (id: string, newText: string) => {
     // Optimistic update for text
