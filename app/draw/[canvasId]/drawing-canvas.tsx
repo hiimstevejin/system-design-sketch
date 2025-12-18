@@ -269,8 +269,8 @@ export default function DrawingCanvas({
             y: el.y + worldCenterY,
 
             ...(el.type === "arrow" && {
-              x2: el.x2 + worldCenterX,
-              y2: el.y2 + worldCenterY,
+              x2: (el.x2 ?? 0) + worldCenterX,
+              y2: (el.y2 ?? 0) + worldCenterY,
             }),
           },
         }));
