@@ -36,6 +36,17 @@ type TextProperties = SharedProperties & {
   text: string;
 };
 
+export type RawAiElement = {
+  type: "rect" | "text" | "arrow";
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  text?: number;
+  x2?: number;
+  y2?: number;
+};
+
 export type Element = {
   id: string;
   canvas_id: string;

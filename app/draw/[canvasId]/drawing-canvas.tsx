@@ -16,7 +16,13 @@ import { useRealtime } from "./_hooks/use-realtime";
 import { useCanvasRenderer } from "./_hooks/use-canvas-renderer";
 import { usePointerEvents } from "./_hooks/use-pointer-events";
 
-import { Element, PreviewElement, CursorPosition, Tool } from "./types";
+import {
+  Element,
+  PreviewElement,
+  CursorPosition,
+  Tool,
+  RawAiElement,
+} from "./types";
 import PropertiesPanel from "./_components/properties-panel";
 
 type DrawingCanvasProps = {
@@ -196,6 +202,7 @@ export default function DrawingCanvas({
 
     if (error) {
       console.error("Upload error:", error);
+      console.log(data);
       return;
     }
     const { data: urlData } = supabase.storage
@@ -251,7 +258,7 @@ export default function DrawingCanvas({
       const data = await res.json();
 
       if (data.elements) {
-        const newElements = data.elements.map((el: any) => ({
+        const newElements = data.elements.map((el: RawAiElement) => ({
           id: nanoid(),
           canvas_id: canvasId,
           created_at: new Date().toISOString(),
@@ -292,6 +299,15 @@ export default function DrawingCanvas({
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
+      <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
+        <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+          <h1 className="text-sm font-semibold text-gray-700 truncate max-w-[200px]">
+            {canvasName}
+          </h1>
+        </div>
+      </div>
+
       <button
         onClick={() => setIsAiOpen(true)}
         className="absolute top-4 right-4 z-50 bg-white p-2 rounded-md shadow-sm border border-indigo-100 text-indigo-600 hover:bg-indigo-50 flex gap-2 items-center font-medium text-sm"

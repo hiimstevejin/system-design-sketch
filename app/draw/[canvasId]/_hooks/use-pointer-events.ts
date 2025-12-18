@@ -163,7 +163,7 @@ export function usePointerEvents({
         );
       }
     },
-    [canvasId, setElements, supabase],
+    [setElements, supabase],
   );
 
   useEffect(() => {
@@ -209,7 +209,7 @@ export function usePointerEvents({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleDeleteSelected]);
+  }, [elements, pasteElement, selectedElementId, handleDeleteSelected]);
 
   const handlePointerDown = useCallback(
     async (e: MouseEvent<HTMLCanvasElement>) => {
