@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import { createClient } from "@/lib/supabase/client";
+import { Sparkles } from "lucide-react";
 
 import Toolbar from "./_components/toolbar";
 import Canvas from "./_components/canvas";
 import CursorsOverlay from "./_components/cursors-overlay";
 import DebugInfo from "./_components/debug-info";
 import EditableText from "./_components/editable-text";
+import AiGenerator from "./_components/ai-generator";
 
 import { useRealtime } from "./_hooks/use-realtime";
 import { useCanvasRenderer } from "./_hooks/use-canvas-renderer";
@@ -36,6 +38,8 @@ export default function DrawingCanvas({
   const [previewElement, setPreviewElement] = useState<PreviewElement>(null);
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
+  const [isAiOpen, setIsAiOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -131,7 +135,10 @@ export default function DrawingCanvas({
     setElements((current) =>
       current.map((el) => {
         if (el.id === id && el.properties.type === "text") {
-          return { ...el, properties: { ...el.properties, text: newText } };
+          return {
+            ...el,
+            properties: { ...el.properties, text: newText },
+          };
         }
         return el;
       }),
@@ -227,6 +234,57 @@ export default function DrawingCanvas({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleAiGenerate = async (prompt: string) => {
+    setIsGenerating(true);
+    try {
+      const screenCenterX = window.innerWidth / 2;
+      const screenCenterY = window.innerHeight / 2;
+
+      const worldCenterX = (screenCenterX - camera.x) / camera.zoom;
+      const worldCenterY = (screenCenterY - camera.y) / camera.zoom;
+
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await res.json();
+
+      if (data.elements) {
+        const newElements = data.elements.map((el: any) => ({
+          id: nanoid(),
+          canvas_id: canvasId,
+          created_at: new Date().toISOString(),
+          properties: {
+            ...el,
+            type: el.type,
+            x: el.x + worldCenterX,
+            y: el.y + worldCenterY,
+
+            ...(el.type === "arrow" && {
+              x2: el.x2 + worldCenterX,
+              y2: el.y2 + worldCenterY,
+            }),
+          },
+        }));
+
+        // Insert into local state
+        setElements((prev) => [...prev, ...newElements]);
+
+        // Insert into Database (Loop or Bulk Insert)
+        const { error } = await supabase.from("elements").insert(newElements);
+        if (error) console.error("Error saving AI elements", error);
+
+        setIsAiOpen(false);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to generate diagram. Try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const elementToEdit = elements.find(
     (el) => el.id === editingElementId && el.properties.type === "text",
   ) as (Element & { properties: { type: "text" } }) | undefined;
@@ -234,6 +292,20 @@ export default function DrawingCanvas({
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
+      <button
+        onClick={() => setIsAiOpen(true)}
+        className="absolute top-4 right-4 z-50 bg-white p-2 rounded-md shadow-sm border border-indigo-100 text-indigo-600 hover:bg-indigo-50 flex gap-2 items-center font-medium text-sm"
+      >
+        <Sparkles className="w-4 h-4" /> AI Generate
+      </button>
+
+      {isAiOpen && (
+        <AiGenerator
+          onClose={() => setIsAiOpen(false)}
+          isGenerating={isGenerating}
+          onGenerate={handleAiGenerate}
+        />
+      )}
       <Toolbar activeTool={activeTool} onToolSelect={handleToolSelect} />
       <input
         type="file"
